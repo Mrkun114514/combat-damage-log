@@ -1,0 +1,63 @@
+plugins {
+    id "com.gradleup.shadow" version "8.3.5" apply false
+    id "dev.architectury.loom" apply true
+}
+
+architectury {
+    platformSetupLoomIde()
+    fabric()
+}
+
+apply plugin: "com.gradleup.shadow"
+
+configurations {
+    common
+    shadowCommon
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+    developmentFabric.extendsFrom common
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+    mappings loom.officialMojangMappings()
+
+    modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+    modApi "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
+
+    modApi "dev.architectury:architectury-fabric:${rootProject.architectury_version}"
+
+    // Mod Menu：仅编译期引用其 API（ModMenuApi / ConfigScreenFactory），运行期由用户安装的 Mod Menu 提供。
+    // 未安装 Mod Menu 时 fabric.mod.json 的 "modmenu" 入口点会被 Fabric 忽略，不影响本模加载。
+    modCompileOnly "maven.modrinth:modmenu:15.0.2"
+
+    common(project(path: ":common", configuration: "namedElements")) { transitive false }
+    shadowCommon(project(path: ":common", configuration: "transformProductionFabric")) { transitive false }
+}
+
+shadowJar {
+    exclude "architectury.common.json"
+    configurations = [project.configurations.shadowCommon]
+    archiveClassifier = "dev-shadow"
+}
+
+remapJar {
+    injectAccessWidener = true
+    input.fileValue shadowJar.archiveFile.get().asFile
+    dependsOn shadowJar
+    archiveClassifier = ""
+}
+
+jar {
+    archiveClassifier = "dev"
+}
+
+java {
+    withSourcesJar()
+}
+
+sourcesJar {
+    archiveClassifier = "dev-sources"
+}
+
+components.java.withVariantsFromConfiguration(configurations.shadowRuntimeElements) { skip() }

@@ -1,0 +1,32 @@
+plugins {
+    // common 自身 apply Loom（提供 minecraft / mappings / mixin 注解处理能力）
+    id "dev.architectury.loom" apply true
+}
+
+architectury {
+    // 注意：architectury 的 common() 并不会注入 minecraft 依赖（已查 3.4 源码确认），
+    // 下面的 minecraft / mappings 必须由本模块自己声明。
+    common(rootProject.enabled_platforms.split(","))
+}
+
+dependencies {
+    // Minecraft 本体与官方映射：common 模块必须显式声明，否则 Loom 报
+    // "Configuration 'minecraft' has no dependencies"。
+    minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+    mappings loom.officialMojangMappings()
+
+    // Architectury 公共 API（编译期即可；跨平台桥接运行期由平台模块的 architectury-fabric/-neoforge 提供）。
+    // 注意：architectury-fabric / -neoforge 只应出现在各自平台模块，common 不要挂，否则会和 base jar 重复类、
+    // 并因其中 @Environment(EnvType.CLIENT) 触发 EnvType 找不到的警告。
+    modCompileOnly "dev.architectury:architectury:${rootProject.architectury_version}"
+    // @ExpectPlatform 注解由 architectury-plugin 通过 architectury-injectables 自动注入到编译类路径（无需手动声明）。
+
+    // fabric-loader 在 common 模块仅作编译期依赖，提供：
+    //   1) org.spongepowered.asm.mixin.* —— common 里的 Mixin 类编译需要（Fabric 与 NeoForge 均内置 Mixin 0.8.x，运行期由各平台模块提供）。
+    //   2) net.fabricmc.api.EnvType —— 消除 architectury 中 @Environment(EnvType.CLIENT) 的"未知枚举常量"警告。
+    // 不用 modImplementation：避免 common 把 loader 打进 jar；平台模块各自已经 modImplementation 了 fabric-loader。
+    modCompileOnly "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+
+    // Gson 已被 Minecraft 自带，这里仅编译期引用（配置与 JSONL 序列化用）
+    compileOnly "com.google.code.gson:gson:2.10.1"
+}

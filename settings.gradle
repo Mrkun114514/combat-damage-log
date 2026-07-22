@@ -1,0 +1,28 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { url = "https://maven.architectury.dev/" }
+        maven { url = "https://maven.fabricmc.net/" }
+        // 备用源：与 neoforged.net 同源的 installer 工具（installertools/mcinjector/DiffPatch）
+        maven { url = "https://maven.minecraftforge.net/" }
+        // 注意：neoForge() 会在 neoforge 模块内自动添加 maven.neoforged.net，
+        // 这里「不」把它放进公共仓库列表，避免 Loom 解析映射时对每个仓库发起请求、
+        // 在你的网络上触发 neoforged 的“连接重置”而中断 Fabric 构建。
+        maven { url = "https://maven.neoforged.net/releases" }
+        mavenCentral()
+    }
+}
+
+// 按 gradle.properties 的 enabled_platforms 决定 include 哪些子项目。
+// 这样 enabled_platforms=fabric 时不会配置 neoforge 模块，Fabric 构建可在无 neoforged 网络下完成。
+def props = new Properties()
+file('gradle.properties').withInputStream { props.load(it) }
+def platforms = props.getProperty('enabled_platforms', 'fabric,neoforge')
+        .split(',')
+        .collect { it.trim() }
+        .findAll { it }
+
+include('common')
+platforms.each { include(it) }
+
+rootProject.name = "combatlog"

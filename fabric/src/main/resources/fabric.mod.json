@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "combatlog",
+  "version": "0.1.0+1.21.8",
+  "name": "Combat Damage Log",
+  "description": "战斗伤害日志 - 以魔兽世界风格记录战斗伤害",
+  "authors": ["Mrkun114514"],
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.mrkun.combatlog.fabric.CombatLogFabric"],
+    "modmenu": ["com.mrkun.combatlog.fabric.ModMenuIntegration"]
+  },
+  "mixins": ["combatlog.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": ">=1.21.8",
+    "java": ">=21"
+  }
+}

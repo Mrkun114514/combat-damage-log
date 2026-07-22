@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8.7",
+  "package": "com.mrkun.combatlog.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "LivingEntityDamageMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

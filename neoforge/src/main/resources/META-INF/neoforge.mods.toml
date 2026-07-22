@@ -1,0 +1,11 @@
+modLoader="javafml"
+loaderVersion="[21,)"
+license="MIT"
+[[mods]]
+modId="combatlog"
+version="0.1.0+1.21.8"
+displayName="Combat Damage Log"
+authors="Mrkun114514"
+description="战斗伤害日志 - 以魔兽世界风格记录战斗伤害（造成伤害 / 受到伤害 / 击杀与死亡原因）"
+[[mixins]]
+config="combatlog.mixins.json"

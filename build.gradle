@@ -1,0 +1,54 @@
+plugins {
+    // Architectury 的 Loom 分支（dev.architectury.loom）。
+    // 注意：architectury-plugin 3.4.164 强依赖本插件扩展的 LoomGradleExtension（addTaskBeforeRun 等），
+    // 不能换成官方 fabric-loom。本插件内嵌的旧 Fabric Loom 在配置阶段调用了 Gradle 8.6+ 已删除的
+    // ProjectDependency.getPath()，故必须用 Gradle 8.5（仍保留 getPath）配合。
+    id "dev.architectury.loom" version "${loom_version}" apply false
+    id "architectury-plugin" version "3.4.164"
+    // johnrengelman.shadow 8.x 与 Gradle 9 不兼容（FileCopyDetails.mode 被移除），
+    // 改用官方继任 fork com.gradleup.shadow（API 完全兼容，drop-in 替换）。
+    // 注意：9.x 字节码引用了 Gradle 8.11+ 才有的 addVariantsFromConfiguration(Provider,Action)，
+    // 在 Gradle 8.8 上会 NoSuchMethodError；故锁到与 8.8 兼容的 8.3.5。
+    id "com.gradleup.shadow" version "8.3.5" apply false
+}
+
+architectury {
+    minecraft = rootProject.minecraft_version
+}
+
+subprojects {
+    apply plugin: "java"
+    apply plugin: "architectury-plugin"
+
+    group = rootProject.maven_group
+    version = "${rootProject.mod_version}+${rootProject.minecraft_version}"
+    base {
+        archivesName = "combatlog-${project.name}"
+    }
+
+    repositories {
+        maven { url = "https://maven.architectury.dev/" }
+        maven { url = "https://maven.fabricmc.net/" }
+        // 备用源（仅作兜底，路径不存在时返回 404，不会触发连接重置）
+        maven { url = "https://maven.minecraftforge.net/" }
+        // Mod Menu（设置菜单齿轮按钮集成用；仅 fabric 模块 modCompileOnly 引用其 API，不打包进 jar）
+        // 用 Modrinth 的 Maven（CDN 稳定），coordinate 为 maven.modrinth:modmenu:<version>
+        maven { url = "https://api.modrinth.com/maven/" }
+        mavenCentral()
+    }
+
+    java {
+        // 1.21.x 强制 Java 21。配置 toolchain 后 Gradle 会优先使用本地 JDK 21，
+        // 缺失时自动下载（需网络）。回退 1.20.x 时改 17（见 README）。
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+
+    // 统一源码/注释编码为 UTF-8，避免 Windows 控制台 GBK 下的中文乱码（不影响编译正确性）。
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
+}
