@@ -32,7 +32,7 @@ public final class CombatLogService {
 
     private CombatLogService() {
         this.config = LogConfig.load();
-        this.store = new SessionStore(config.maxBufferSize);
+        this.store = new SessionStore(config);
     }
 
     public void onDamage(LivingEntity entity, DamageSource source, float amount) {

@@ -11,13 +11,19 @@ import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 public final class CombatLogScreen extends Screen {
-    private List<CombatLogEntry> entries = List.of();
+    private List<CombatLogEntry> all = List.of();
+    private String filter = "ALL";   // ALL / DAMAGE_DEALT / DAMAGE_TAKEN / DEATH
     private int scroll = 0;
-    private static final int PADDING = 8;
-    private static final int LINE_H = 12;
+    private static final int PAD = 10;
+    private static final int LINE_H = 15;
+    private static final int HEADER_H = 30;
+
+    private static final String[] TABS = {"ALL", "DAMAGE_DEALT", "DAMAGE_TAKEN", "DEATH"};
+    private static final String[] TAB_LABEL = {"全部", "造成伤害", "受到伤害", "死亡/击杀"};
 
     public CombatLogScreen() {
         super(Component.literal("Combat Damage Log"));
@@ -26,19 +32,24 @@ public final class CombatLogScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        this.entries = CombatLogService.getInstance().getRecent();
+        this.all = CombatLogService.getInstance().getRecent();
         this.scroll = 0;
 
-        this.addRenderableWidget(Button.builder(Component.literal("Refresh"), b -> {
-            this.entries = CombatLogService.getInstance().getRecent();
-            this.scroll = 0;
-        }).bounds(this.width - 110, 8, 100, 20).build());
+        int btnW = 96, btnH = 20, gap = 6;
+        int total = btnW * 3 + gap * 2;
+        int startX = this.width - PAD - total;
+        this.addRenderableWidget(Button.builder(Component.literal("刷新"), b -> refresh())
+                .bounds(startX, PAD, btnW, btnH).build());
+        this.addRenderableWidget(Button.builder(Component.literal("导出"), b -> export())
+                .bounds(startX + (btnW + gap), PAD, btnW, btnH).build());
+        this.addRenderableWidget(Button.builder(Component.literal("设置"),
+                        b -> Minecraft.getInstance().setScreen(new SettingsScreen(this)))
+                .bounds(startX + (btnW + gap) * 2, PAD, btnW, btnH).build());
+    }
 
-        this.addRenderableWidget(Button.builder(Component.literal("Export"), b -> this.export())
-                .bounds(this.width - 220, 8, 100, 20).build());
-
-        this.addRenderableWidget(Button.builder(Component.literal("设置"), b -> Minecraft.getInstance().setScreen(new SettingsScreen(this)))
-                .bounds(this.width - 330, 8, 100, 20).build());
+    private void refresh() {
+        this.all = CombatLogService.getInstance().getRecent();
+        this.scroll = 0;
     }
 
     private void export() {
@@ -51,64 +62,120 @@ public final class CombatLogScreen extends Screen {
         }
     }
 
+    private List<CombatLogEntry> filtered() {
+        if ("ALL".equals(filter)) return all;
+        List<CombatLogEntry> out = new ArrayList<>();
+        for (CombatLogEntry e : all) {
+            if (e.eventType.equals(filter)) out.add(e);
+        }
+        return out;
+    }
+
+    // 面板与标题栏在背景层绘制（位于按钮等控件之下），避免遮盖控件。
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(graphics, mouseX, mouseY, partialTick);
+        int x = PAD, y = PAD, w = this.width - PAD * 2, h = this.height - PAD * 2;
+        Theme.panel(graphics, x, y, w, h, 6, Theme.BORDER, Theme.PANEL);
+        Theme.vGradient(graphics, x + 2, y + 2, w - 4, HEADER_H, Theme.HEADER_TOP, Theme.HEADER_BOTTOM);
+    }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // 只让 super.render() 做一次背景模糊。
-        // Minecraft 1.21.8 的新渲染管线每帧仅允许 blur 一次，手动再调一次会抛
-        // IllegalStateException("Can only blur once per frame")。
-        // 自定义面板内容放在 super 之后绘制；内容区从 y=32 起，避开顶部按钮行(y=8~28)。
         super.render(graphics, mouseX, mouseY, partialTick);
 
-        int contentX = PADDING;
-        int contentY = 32;
-        int contentW = this.width - PADDING * 2;
-        int contentH = this.height - contentY - PADDING * 2;
+        int x = PAD, y = PAD, w = this.width - PAD * 2, h = this.height - PAD * 2;
+        int accent = Theme.accent(CombatLogService.getInstance().config().colorScheme);
 
-        graphics.fill(contentX, contentY, contentX + contentW, contentY + contentH, 0xCC000000);
+        graphics.drawString(this.font, "战斗伤害日志", x + 12, y + 9, accent, false);
+        graphics.drawString(this.font, "[滚轮] 浏览  [ESC] 关闭",
+                x + w - 150, y + 10, Theme.TEXT_DIM, false);
 
-        int titleY = PADDING;
-        // 标题文字画在左侧，与右侧按钮同行但 x 不重叠，故不再铺标题栏底色以免遮挡按钮
-        graphics.drawString(this.font, "Combat Damage Log", contentX + PADDING, titleY + 4, 0x00CCFF, false);
-        graphics.drawString(this.font, "[Scroll] Navigate  [ESC] Close", contentX + contentW - 160, titleY + 5, 0x666666, false);
+        // 筛选标签
+        int tabY = y + HEADER_H + 6;
+        int tabX = x + 12;
+        int tabW = 88, tabH = 20, tabGap = 6;
+        for (int i = 0; i < TABS.length; i++) {
+            int tx = tabX + i * (tabW + tabGap);
+            boolean active = TABS[i].equals(filter);
+            graphics.fill(tx, tabY, tx + tabW, tabY + tabH, active ? ctxSchemeBlend(accent) : Theme.TAB_BG);
+            graphics.fill(tx, tabY + tabH - 2, tx + tabW, tabY + tabH, active ? accent : Theme.BORDER);
+            graphics.drawString(this.font, TAB_LABEL[i], tx + 10, tabY + 6,
+                    active ? Theme.TEXT : Theme.TEXT_DIM, false);
+        }
 
+        // 内容区
+        int contentY = tabY + tabH + 8;
+        int contentX = x + 12;
+        int contentW = w - 24;
+        int contentH = y + h - contentY - PAD;
+
+        List<CombatLogEntry> list = filtered();
         int visible = Math.max(1, contentH / LINE_H);
-        if (scroll > entries.size() - visible) scroll = Math.max(0, entries.size() - visible);
+        if (scroll > list.size() - visible) scroll = Math.max(0, list.size() - visible);
         if (scroll < 0) scroll = 0;
 
-        int textX = contentX + PADDING;
-        int textY = contentY + PADDING;
-
-        if (entries.isEmpty()) {
-            graphics.drawString(this.font, "No combat log entries yet", textX, textY + contentH / 2 - 6, 0x666666, false);
+        if (list.isEmpty()) {
+            graphics.drawString(this.font, "暂无符合条件的战斗记录",
+                    contentX, contentY + contentH / 2 - 4, Theme.TEXT_DIM, false);
         } else {
             for (int i = 0; i < visible; i++) {
-                int idx = entries.size() - 1 - scroll - i;
+                int idx = list.size() - 1 - scroll - i;
                 if (idx < 0) break;
-                CombatLogEntry e = entries.get(idx);
-                graphics.drawString(this.font, SessionStore.formatLine(e), textX, textY + i * LINE_H, colorFor(e.eventType), false);
+                CombatLogEntry e = list.get(idx);
+                graphics.drawString(this.font, SessionStore.formatLine(e),
+                        contentX, contentY + i * LINE_H, colorFor(e.eventType), false);
             }
-
-            if (entries.size() > visible) {
-                int scrollBarW = 4;
-                int scrollBarX = contentX + contentW - scrollBarW - 2;
-                int scrollBarH = contentH;
-                float scrollRatio = (float) scroll / Math.max(1, entries.size() - visible);
-                int thumbH = Math.max(20, (int) (scrollBarH * ((float) visible / entries.size())));
-                int thumbY = contentY + (int) (scrollRatio * (scrollBarH - thumbH));
-
-                graphics.fill(scrollBarX, contentY, scrollBarX + scrollBarW, contentY + scrollBarH, 0x40FFFFFF);
-                graphics.fill(scrollBarX, thumbY, scrollBarX + scrollBarW, thumbY + thumbH, 0x80FFFFFF);
+            if (list.size() > visible) {
+                int barW = 4;
+                int barX = x + w - PAD - barW;
+                float ratio = (float) scroll / Math.max(1, list.size() - visible);
+                int thumbH = Math.max(20, (int) (contentH * ((float) visible / list.size())));
+                int thumbY = contentY + (int) (ratio * (contentH - thumbH));
+                graphics.fill(barX, contentY, barX + barW, contentY + contentH, 0x40FFFFFF);
+                graphics.fill(barX, thumbY, barW + barX, thumbY + thumbH, 0x80FFFFFF);
             }
         }
+
+        // 底部状态栏
+        String status = String.format("显示 %d / 共 %d 条  筛选: %s",
+                Math.min(visible, list.size()), all.size(), labelOf(filter));
+        graphics.drawString(this.font, status, x + 12, y + h - 16, Theme.TEXT_DIM, false);
+    }
+
+    private static int ctxSchemeBlend(int accent) {
+        return (0x30 << 24) | (accent & 0x00FFFFFF);
+    }
+
+    private static String labelOf(String f) {
+        for (int i = 0; i < TABS.length; i++) if (TABS[i].equals(f)) return TAB_LABEL[i];
+        return "全部";
     }
 
     private static int colorFor(String eventType) {
         return switch (eventType) {
-            case "DAMAGE_TAKEN" -> 0xFF6666;
-            case "DAMAGE_DEALT" -> 0xFFFFAA;
-            case "DEATH" -> 0xAA66FF;
-            default -> 0xAAAAAA;
+            case "DAMAGE_TAKEN" -> Theme.TAKEN;
+            case "DAMAGE_DEALT" -> Theme.DEALT;
+            case "DEATH" -> Theme.DEATH;
+            default -> Theme.TEXT;
         };
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        int y = PAD, x = PAD;
+        int tabY = y + HEADER_H + 6;
+        int tabX = x + 12;
+        int tabW = 88, tabH = 20, tabGap = 6;
+        for (int i = 0; i < TABS.length; i++) {
+            int tx = tabX + i * (tabW + tabGap);
+            if (mouseX >= tx && mouseX <= tx + tabW && mouseY >= tabY && mouseY <= tabY + tabH) {
+                filter = TABS[i];
+                scroll = 0;
+                return true;
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override

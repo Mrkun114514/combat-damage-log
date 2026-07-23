@@ -26,14 +26,14 @@ import java.util.List;
  */
 public final class SessionStore {
     private final Deque<CombatLogEntry> recent = new ArrayDeque<>();
-    private final int max;
+    private final LogConfig config;
     private final File sessionFile;
     private final BufferedWriter writer;
     private final Gson gson = new Gson();
     private int sinceFlush = 0;
 
-    public SessionStore(int maxBufferSize) {
-        this.max = Math.max(100, maxBufferSize);
+    public SessionStore(LogConfig config) {
+        this.config = config;
         File dir = new File(Minecraft.getInstance().gameDirectory, "combatlog/sessions");
         dir.mkdirs();
         String id = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").format(LocalDateTime.now());
@@ -44,12 +44,17 @@ public final class SessionStore {
         } catch (IOException e) {
             throw new RuntimeException("无法创建战斗日志会话文件: " + sessionFile, e);
         }
-        Runtime.getRuntime().addShutdownHook(new Thread(this::flush));
+        Runtime.getRuntime().addShutdownHook(new Thread(this::close));
+    }
+
+    /** 当前生效的缓冲上限（读取实时配置，修改设置后无需重启即可生效）。 */
+    private int max() {
+        return Math.max(100, config.maxBufferSize);
     }
 
     public synchronized void append(CombatLogEntry e) {
         recent.addLast(e);
-        if (recent.size() > max) recent.removeFirst();
+        if (recent.size() > max()) recent.removeFirst();
         try {
             writer.write(gson.toJson(e));
             writer.newLine();
@@ -65,6 +70,15 @@ public final class SessionStore {
             sinceFlush = 0;
         } catch (IOException ignored) {
         }
+    }
+
+    public synchronized void close() {
+        try {
+            writer.flush();
+            writer.close();
+        } catch (IOException ignored) {
+        }
+        sinceFlush = 0;
     }
 
     public synchronized void clear() {

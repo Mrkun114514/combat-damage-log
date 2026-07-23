@@ -51,12 +51,15 @@ public final class DamageSourceInfo {
 
     private static String extractTypeId(DamageSource source, LivingEntity target) {
         DamageType type = source.type();
-        // 1.20.5+：DAMAGE_TYPE 是数据驱动注册表，已不在 BuiltInRegistries 上，
-        // 必须通过 level 的 RegistryAccess 查（如 minecraft:fall）。
-        Registry<DamageType> registry = target.registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE);
-        ResourceLocation key = registry.getKey(type);
-        if (key != null) {
-            return key.toString();
+        // 1.20.5+：DAMAGE_TYPE 是数据驱动注册表，已不在 BuiltInRegistries 上。
+        // RegistryAccess 只提供 lookup(...)（运行时对象即 Registry<DamageType>），
+        // 向下转型后调用其 getKey(T) 可定位伤害类型 id（如 minecraft:fall）。
+        var lookup = target.registryAccess().lookup(Registries.DAMAGE_TYPE).orElse(null);
+        if (lookup instanceof Registry<DamageType> registry) {
+            ResourceLocation key = registry.getKey(type);
+            if (key != null) {
+                return key.toString();
+            }
         }
         // 回退：message id（旧版本 / 未注册类型）
         return type.msgId();
