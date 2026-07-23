@@ -1,9 +1,11 @@
 package com.mrkun.combatlog.platform.neoforge;
 
 import com.mrkun.combatlog.CombatLog;
+import com.mrkun.combatlog.capture.ClientDamageTracker;
 import com.mrkun.combatlog.capture.CombatLogService;
 import com.mrkun.combatlog.platform.CombatLogPlatform;
 import com.mrkun.combatlog.ui.CombatLogScreen;
+import com.mrkun.combatlog.ui.DamageMeterScreen;
 import com.mrkun.combatlog.ui.HudOverlay;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
@@ -24,6 +26,8 @@ public final class CombatLogPlatformImpl {
             "key.combatlog.open", KeyConflictContext.IN_GAME, GLFW.GLFW_KEY_K, "key.category.combatlog");
     public static final KeyMapping TOGGLE_HUD_KEY = new KeyMapping(
             "key.combatlog.togglehud", KeyConflictContext.IN_GAME, GLFW.GLFW_KEY_H, "key.category.combatlog");
+    public static final KeyMapping OPEN_METER_KEY = new KeyMapping(
+            "key.combatlog.meter", KeyConflictContext.IN_GAME, GLFW.GLFW_KEY_M, "key.category.combatlog");
 
     public static void init() {
         CombatLog.init();
@@ -42,6 +46,7 @@ public final class CombatLogPlatformImpl {
     public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
         event.register(OPEN_LOG_KEY);
         event.register(TOGGLE_HUD_KEY);
+        event.register(OPEN_METER_KEY);
     }
 
     public static void openLogScreen() {
@@ -52,6 +57,10 @@ public final class CombatLogPlatformImpl {
         CombatLogService svc = CombatLogService.getInstance();
         svc.config().enableHud = !svc.config().enableHud;
         svc.config().save();
+    }
+
+    public static void openMeterScreen() {
+        Minecraft.getInstance().setScreen(new DamageMeterScreen(null));
     }
 
     public static class HudRenderer {
@@ -67,6 +76,9 @@ public final class CombatLogPlatformImpl {
             if (event.phase != TickEvent.Phase.END) return;
             if (OPEN_LOG_KEY.consumeClick()) CombatLogPlatform.openLogScreen();
             if (TOGGLE_HUD_KEY.consumeClick()) CombatLogPlatform.toggleHud();
+            if (OPEN_METER_KEY.consumeClick()) CombatLogPlatform.openMeterScreen();
+            // 多人服伤害捕获：结算 handleDamageEvent 事件的血量差分
+            ClientDamageTracker.getInstance().tick();
         }
     }
 }

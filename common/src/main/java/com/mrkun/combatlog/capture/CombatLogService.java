@@ -92,6 +92,10 @@ public final class CombatLogService {
         return store.stats();
     }
 
+    public SessionStore store() {
+        return store;
+    }
+
     public LogConfig config() {
         return config;
     }

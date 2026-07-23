@@ -16,9 +16,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Date;
 import java.util.Deque;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 会话存储：内存环形缓冲（上限 maxBufferSize）+ 周期落盘的 JSONL 会话文件。
@@ -104,6 +107,96 @@ public final class SessionStore {
         }
         long durSec = Math.max(1, (end - start) / 1000);
         return new Stats(dealt, taken, dealt / durSec, taken / durSec, recent.size());
+    }
+
+    /**
+     * WoW 风格伤害统计（DPS 计量器）：按「伤害来源」（谁打的）与「受伤目标」（谁被打）
+     * 两个维度聚合，并保留各自内部的明细拆分（来源→各目标 / 目标→各来源，取前若干）。
+     * 仅统计造成伤害 / 受到伤害两类事件。
+     */
+    public synchronized Meter meter() {
+        Map<String, Breakdown> bySource = new LinkedHashMap<>();
+        Map<String, Breakdown> byTarget = new LinkedHashMap<>();
+        float totalDealt = 0, totalTaken = 0;
+        for (CombatLogEntry e : recent) {
+            if (!"DAMAGE_DEALT".equals(e.eventType) && !"DAMAGE_TAKEN".equals(e.eventType)) continue;
+            if (e.amount <= 0) continue;
+            String srcKey = keyOf(e.sourceEntityName, e.sourceEntityType);
+            String tgtKey = keyOf(e.targetEntityName, e.targetEntityType);
+            Breakdown s = bySource.computeIfAbsent(srcKey, k -> new Breakdown(e.sourceEntityName, e.sourceEntityType));
+            Breakdown t = byTarget.computeIfAbsent(tgtKey, k -> new Breakdown(e.targetEntityName, e.targetEntityType));
+            s.total += e.amount; s.hits++;
+            t.total += e.amount; t.hits++;
+            s.addSplit(e.targetEntityName, e.amount);
+            t.addSplit(e.sourceEntityName, e.amount);
+            if ("DAMAGE_DEALT".equals(e.eventType)) totalDealt += e.amount;
+            else totalTaken += e.amount;
+        }
+        List<Breakdown> sources = topSorted(bySource.values());
+        List<Breakdown> targets = topSorted(byTarget.values());
+        return new Meter(sources, targets, totalDealt, totalTaken);
+    }
+
+    private static String keyOf(String name, String type) {
+        return name + "\u0000" + (type == null ? "" : type);
+    }
+
+    private static List<Breakdown> topSorted(Collection<Breakdown> values) {
+        List<Breakdown> list = new ArrayList<>(values);
+        list.sort((a, b) -> Float.compare(b.total, a.total));
+        for (Breakdown b : list) b.trimSplit(3);
+        return list;
+    }
+
+    public static final class Meter {
+        public final List<Breakdown> bySource;   // 谁打了伤害（含对各个目标的拆分）
+        public final List<Breakdown> byTarget;   // 哪个实体受伤了（含被各个来源打的拆分）
+        public final float totalDealt, totalTaken;
+
+        public Meter(List<Breakdown> bySource, List<Breakdown> byTarget, float totalDealt, float totalTaken) {
+            this.bySource = bySource;
+            this.byTarget = byTarget;
+            this.totalDealt = totalDealt;
+            this.totalTaken = totalTaken;
+        }
+    }
+
+    public static final class Breakdown {
+        public final String name;     // 实体显示名（来源或目标）
+        public final String type;     // 实体注册表 id
+        public float total;           // 该维度总伤害
+        public int hits;              // 命中次数
+        public final List<Contrib> split = new ArrayList<>(); // 对另一维度的明细拆分
+
+        public Breakdown(String name, String type) {
+            this.name = name;
+            this.type = type;
+        }
+
+        void addSplit(String otherName, float amount) {
+            for (Contrib c : split) {
+                if (c.name.equals(otherName)) {
+                    c.amount += amount;
+                    return;
+                }
+            }
+            split.add(new Contrib(otherName, amount));
+        }
+
+        void trimSplit(int n) {
+            split.sort((a, b) -> Float.compare(b.amount, a.amount));
+            while (split.size() > n) split.remove(split.size() - 1);
+        }
+    }
+
+    public static final class Contrib {
+        public final String name;
+        public float amount;
+
+        public Contrib(String name, float amount) {
+            this.name = name;
+            this.amount = amount;
+        }
     }
 
     public synchronized void export(File out) throws IOException {

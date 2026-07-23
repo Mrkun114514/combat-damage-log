@@ -36,15 +36,18 @@ public final class CombatLogScreen extends Screen {
         this.scroll = 0;
 
         int btnW = 96, btnH = 20, gap = 6;
-        int total = btnW * 3 + gap * 2;
+        int total = btnW * 4 + gap * 3;
         int startX = this.width - PAD - total;
         this.addRenderableWidget(Button.builder(Component.literal("刷新"), b -> refresh())
                 .bounds(startX, PAD, btnW, btnH).build());
         this.addRenderableWidget(Button.builder(Component.literal("导出"), b -> export())
                 .bounds(startX + (btnW + gap), PAD, btnW, btnH).build());
+        this.addRenderableWidget(Button.builder(Component.literal("伤害统计"),
+                        b -> Minecraft.getInstance().setScreen(new DamageMeterScreen(this)))
+                .bounds(startX + (btnW + gap) * 2, PAD, btnW, btnH).build());
         this.addRenderableWidget(Button.builder(Component.literal("设置"),
                         b -> Minecraft.getInstance().setScreen(new SettingsScreen(this)))
-                .bounds(startX + (btnW + gap) * 2, PAD, btnW, btnH).build());
+                .bounds(startX + (btnW + gap) * 3, PAD, btnW, btnH).build());
     }
 
     private void refresh() {

@@ -20,6 +20,12 @@ public final class LogConfig {
     public boolean enableHud = true;
     public String openLogKey = "key.combatlog.open";
     public String toggleHudKey = "key.combatlog.togglehud";
+    /**
+     * HUD 面板左上角的屏幕坐标（GUI 缩放后的像素）。
+     * 任一值 < 0 表示「自动」：默认贴右上角。拖动编辑器会把实际坐标写回这里。
+     */
+    public int hudX = -1;
+    public int hudY = -1;
     public int maxBufferSize = 2000;
     public long maxSessionBytes = 5L * 1024 * 1024;
     public String colorScheme = "wow";

@@ -1,9 +1,11 @@
 package com.mrkun.combatlog.platform.fabric;
 
 import com.mrkun.combatlog.CombatLog;
+import com.mrkun.combatlog.capture.ClientDamageTracker;
 import com.mrkun.combatlog.capture.CombatLogService;
 import com.mrkun.combatlog.platform.CombatLogPlatform;
 import com.mrkun.combatlog.ui.CombatLogScreen;
+import com.mrkun.combatlog.ui.DamageMeterScreen;
 import com.mrkun.combatlog.ui.HudOverlay;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -20,6 +22,7 @@ import org.lwjgl.glfw.GLFW;
 public final class CombatLogPlatformImpl {
     private static KeyMapping openLogKey;
     private static KeyMapping toggleHudKey;
+    private static KeyMapping openMeterKey;
 
     public static void init() {
         CombatLog.init();
@@ -38,9 +41,14 @@ public final class CombatLogPlatformImpl {
                 "key.combatlog.open", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.category.combatlog"));
         toggleHudKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.combatlog.togglehud", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_H, "key.category.combatlog"));
+        openMeterKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+                "key.combatlog.meter", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_M, "key.category.combatlog"));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (openLogKey.consumeClick()) CombatLogPlatform.openLogScreen();
             while (toggleHudKey.consumeClick()) CombatLogPlatform.toggleHud();
+            while (openMeterKey.consumeClick()) CombatLogPlatform.openMeterScreen();
+            // 多人服伤害捕获：结算 handleDamageEvent 事件的血量差分
+            ClientDamageTracker.getInstance().tick();
         });
     }
 
@@ -52,5 +60,9 @@ public final class CombatLogPlatformImpl {
         CombatLogService svc = CombatLogService.getInstance();
         svc.config().enableHud = !svc.config().enableHud;
         svc.config().save();
+    }
+
+    public static void openMeterScreen() {
+        Minecraft.getInstance().setScreen(new DamageMeterScreen(null));
     }
 }

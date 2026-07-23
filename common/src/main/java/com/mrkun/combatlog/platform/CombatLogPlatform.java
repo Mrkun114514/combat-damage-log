@@ -34,4 +34,9 @@ public final class CombatLogPlatform {
     public static void toggleHud() {
         throw new AssertionError();
     }
+
+    @ExpectPlatform
+    public static void openMeterScreen() {
+        throw new AssertionError();
+    }
 }

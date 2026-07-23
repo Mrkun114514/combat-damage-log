@@ -26,6 +26,7 @@ public final class SettingsScreen extends Screen {
 
     private Button hudBtn;
     private Button schemeBtn;
+    private Button posBtn;
     private Button bufMinus, bufPlus, bufLabel;
     private Button clearBtn;
 
@@ -68,6 +69,10 @@ public final class SettingsScreen extends Screen {
             b.setMessage(Component.literal(schemeText()));
         }).bounds(rx, ry + 64, rw, 22).build();
 
+        posBtn = Button.builder(Component.literal("调整 HUD 位置…"), b -> {
+            Minecraft.getInstance().setScreen(new HudPositionScreen(this));
+        }).bounds(rx, ry + 96, rw, 22).build();
+
         // —— 数据 ——
         bufMinus = Button.builder(Component.literal("-"), b -> {
             config.maxBufferSize = Math.max(100, config.maxBufferSize - 500);
@@ -84,6 +89,7 @@ public final class SettingsScreen extends Screen {
 
         this.addRenderableWidget(hudBtn);
         this.addRenderableWidget(schemeBtn);
+        this.addRenderableWidget(posBtn);
         this.addRenderableWidget(bufMinus);
         this.addRenderableWidget(bufLabel);
         this.addRenderableWidget(bufPlus);
@@ -98,11 +104,12 @@ public final class SettingsScreen extends Screen {
 
     private void updateVisibility() {
         // 本版本 Button 没有 setVisible，改用 removeWidget / addRenderableWidget 切换。
-        AbstractWidget[] all = {hudBtn, schemeBtn, bufMinus, bufLabel, bufPlus, clearBtn};
+        AbstractWidget[] all = {hudBtn, schemeBtn, posBtn, bufMinus, bufLabel, bufPlus, clearBtn};
         for (AbstractWidget w : all) this.removeWidget(w);
         if (selected == 0) {
             this.addRenderableWidget(hudBtn);
             this.addRenderableWidget(schemeBtn);
+            this.addRenderableWidget(posBtn);
         } else if (selected == 1) {
             this.addRenderableWidget(bufMinus);
             this.addRenderableWidget(bufLabel);
@@ -174,7 +181,7 @@ public final class SettingsScreen extends Screen {
 
         if (selected == 0) {
             graphics.drawString(this.font, "是否在游戏内显示实时战斗 HUD。", rx, y + HEADER_H + 44, Theme.TEXT_DIM, false);
-            graphics.drawString(this.font, "界面配色风格。", rx, y + HEADER_H + 108, Theme.TEXT_DIM, false);
+            graphics.drawString(this.font, "界面配色风格。", rx, y + HEADER_H + 128, Theme.TEXT_DIM, false);
         } else if (selected == 1) {
             graphics.drawString(this.font, "内存中保留的最大日志条数（修改即时生效）。", rx, y + HEADER_H + 14, Theme.TEXT_DIM, false);
             graphics.drawString(this.font, "清空当前会话的内存缓冲区（不影响已导出文件）。", rx, y + HEADER_H + 56, Theme.TEXT_DIM, false);

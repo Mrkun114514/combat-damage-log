@@ -1,5 +1,6 @@
 {
   "key.combatlog.open": "打开战斗日志",
   "key.combatlog.togglehud": "切换战斗 HUD",
+  "key.combatlog.meter": "伤害统计面板",
   "key.category.combatlog": "战斗伤害日志"
 }
