@@ -23,6 +23,7 @@ public final class CombatLogPlatformImpl {
     private static KeyMapping openLogKey;
     private static KeyMapping toggleHudKey;
     private static KeyMapping openMeterKey;
+    private static boolean wasInWorld = false;
 
     public static void init() {
         CombatLog.init();
@@ -49,6 +50,15 @@ public final class CombatLogPlatformImpl {
             while (openMeterKey.consumeClick()) CombatLogPlatform.openMeterScreen();
             // 多人服伤害捕获：结算 handleDamageEvent 事件的血量差分
             ClientDamageTracker.getInstance().tick();
+            // 退出世界（切换存档/断开连接）时自动清空日志，避免不同存档之间串日志
+            if (client.player == null) {
+                if (wasInWorld) {
+                    CombatLogService.getInstance().resetSession();
+                    wasInWorld = false;
+                }
+            } else {
+                wasInWorld = true;
+            }
         });
     }
 

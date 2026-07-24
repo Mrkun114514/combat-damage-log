@@ -116,6 +116,14 @@ public final class CombatLogService {
         store.clear();
     }
 
+    /**
+     * 退出世界/切换存档时调用：刷盘后清空内存缓冲区，确保不同存档之间不串日志。
+     */
+    public void resetSession() {
+        flush();
+        clear();
+    }
+
     private static boolean isLocalPlayer(Entity e, UUID me) {
         return e instanceof Player p && p.getUUID().equals(me);
     }

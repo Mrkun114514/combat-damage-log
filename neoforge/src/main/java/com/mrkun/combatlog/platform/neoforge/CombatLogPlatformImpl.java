@@ -71,6 +71,8 @@ public final class CombatLogPlatformImpl {
     }
 
     public static class KeyHandler {
+        private boolean wasInWorld = false;
+
         @SubscribeEvent
         public void onClientTick(TickEvent.ClientTickEvent event) {
             if (event.phase != TickEvent.Phase.END) return;
@@ -79,6 +81,16 @@ public final class CombatLogPlatformImpl {
             if (OPEN_METER_KEY.consumeClick()) CombatLogPlatform.openMeterScreen();
             // 多人服伤害捕获：结算 handleDamageEvent 事件的血量差分
             ClientDamageTracker.getInstance().tick();
+            // 退出世界（切换存档/断开连接）时自动清空日志，避免不同存档之间串日志
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player == null) {
+                if (wasInWorld) {
+                    CombatLogService.getInstance().resetSession();
+                    wasInWorld = false;
+                }
+            } else {
+                wasInWorld = true;
+            }
         }
     }
 }
